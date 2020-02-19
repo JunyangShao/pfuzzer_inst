@@ -23,6 +23,11 @@
 /* cJSON */
 /* JSON parser in C. */
 
+void __afl_observe_state(int,int);
+void __afl_start_observe();
+void __afl_end_observe();
+void __afl_observe_action(int,int);
+
 /* disable warnings about old C89 functions in MSVC */
 #if !defined(_CRT_SECURE_NO_DEPRECATE) && defined(_MSC_VER)
 #define _CRT_SECURE_NO_DEPRECATE
@@ -265,6 +270,8 @@ typedef struct
 /* Parse the input text to generate a number, and populate the result into item. */
 static cJSON_bool parse_number(cJSON * const item, parse_buffer * const input_buffer)
 {
+        __afl_observe_state(0,0);
+
     double number = 0;
     unsigned char *after_end = NULL;
     unsigned char number_c_string[64];
@@ -273,6 +280,8 @@ static cJSON_bool parse_number(cJSON * const item, parse_buffer * const input_bu
 
     if ((input_buffer == NULL) || (input_buffer->content == NULL))
     {
+        __afl_observe_state(0,0);
+
         return false;
     }
 
@@ -284,54 +293,90 @@ static cJSON_bool parse_number(cJSON * const item, parse_buffer * const input_bu
         switch (buffer_at_offset(input_buffer)[i])
         {
             case '0':
+        __afl_observe_state(0,0);
+
             case '1':
+        __afl_observe_state(0,0);
             case '2':
+        __afl_observe_state(0,0);
             case '3':
+        __afl_observe_state(0,0);
             case '4':
+        __afl_observe_state(0,0);
             case '5':
+        __afl_observe_state(0,0);
             case '6':
+        __afl_observe_state(0,0);
             case '7':
+        __afl_observe_state(0,0);
             case '8':
+        __afl_observe_state(0,0);
             case '9':
+        __afl_observe_state(0,0);
             case '+':
+        __afl_observe_state(0,0);
             case '-':
+        __afl_observe_state(0,0);
             case 'e':
+        __afl_observe_state(0,0);
             case 'E':
+        __afl_observe_state(0,0);
+
                 number_c_string[i] = buffer_at_offset(input_buffer)[i];
                 break;
 
             case '.':
+        __afl_observe_state(0,0);
+
                 number_c_string[i] = decimal_point;
                 break;
 
             default:
+        __afl_observe_state(0,0);
+
                 goto loop_end;
         }
+        __afl_observe_state(0,0);
+
     }
+        __afl_observe_state(0,0);
+
 loop_end:
+        __afl_observe_state(0,0);
+
     number_c_string[i] = '\0';
 
     number = strtod((const char*)number_c_string, (char**)&after_end);
     if (number_c_string == after_end)
     {
+        __afl_observe_state(0,0);
+
         return false; /* parse_error */
     }
 
     item->valuedouble = number;
+        __afl_observe_state(0,0);
 
     /* use saturation in case of overflow */
     if (number >= INT_MAX)
     {
+        __afl_observe_state(0,0);
+
         item->valueint = INT_MAX;
     }
     else if (number <= (double)INT_MIN)
     {
+        __afl_observe_state(0,0);
+
         item->valueint = INT_MIN;
     }
     else
     {
+        __afl_observe_state(0,0);
+
         item->valueint = (int)number;
     }
+        __afl_observe_state(0,0);
 
     item->type = cJSON_Number;
 
@@ -701,24 +746,61 @@ static cJSON_bool parse_string(cJSON * const item, parse_buffer * const input_bu
     const unsigned char *input_end = buffer_at_offset(input_buffer) + 1;
     unsigned char *output_pointer = NULL;
     unsigned char *output = NULL;
+        __afl_observe_state(0,0);
+    
 
     /* not a string */
     if (buffer_at_offset(input_buffer)[0] != '\"')
     {
+        __afl_observe_state(0,0);
+
         goto fail;
     }
-
+    // JY9 
+    /*
+        假设递归下降的节点如下: node(tree * T, char * buffer){
+            // Some Initialization 
+            OBSERVE;
+            if...
+            {
+                OBSERVE;
+                if ...
+                {
+                    OBSERVE;
+                    ...
+                }
+            }
+            OBSERVE;
+            switch ...
+                case ...:
+                    OBSERVE;
+                    ...
+                case ...:
+                    OBSERVE;
+                    ...
+                ...
+            OBSERVE;
+            return;
+        }
+        总结就是在switch的所有case block开头处观察，在if block的开头处观察，以及在if/switch开始与结束之处观察。
+    */
     {
         /* calculate approximate size of the output (overestimate) */
         size_t allocation_length = 0;
         size_t skipped_bytes = 0;
         while (((size_t)(input_end - input_buffer->content) < input_buffer->length) && (*input_end != '\"'))
         {
+        __afl_observe_state(0,0);
+
             /* is escape sequence */
             if (input_end[0] == '\\')
             {
+        __afl_observe_state(0,0);
+
                 if ((size_t)(input_end + 1 - input_buffer->content) >= input_buffer->length)
                 {
+        __afl_observe_state(0,0);
+
                     /* prevent buffer overflow when last input character is a backslash */
                     goto fail;
                 }
@@ -729,14 +811,19 @@ static cJSON_bool parse_string(cJSON * const item, parse_buffer * const input_bu
         }
         if (((size_t)(input_end - input_buffer->content) >= input_buffer->length) || (*input_end != '\"'))
         {
+        __afl_observe_state(0,0);
+
             goto fail; /* string ended unexpectedly */
         }
+        __afl_observe_state(0,0);
 
         /* This is at most how much we need for the output */
         allocation_length = (size_t) (input_end - buffer_at_offset(input_buffer)) - skipped_bytes;
         output = (unsigned char*)input_buffer->hooks.allocate(allocation_length + sizeof(""));
         if (output == NULL)
         {
+        __afl_observe_state(0,0);
+
             goto fail; /* allocation failure */
         }
     }
@@ -745,58 +832,92 @@ static cJSON_bool parse_string(cJSON * const item, parse_buffer * const input_bu
     /* loop through the string literal */
     while (input_pointer < input_end)
     {
+        __afl_observe_state(0,0);
+
         if (*input_pointer != '\\')
         {
+        __afl_observe_state(0,0);
+
             *output_pointer++ = *input_pointer++;
         }
         /* escape sequence */
         else
         {
+        __afl_observe_state(0,0);
+
             unsigned char sequence_length = 2;
             if ((input_end - input_pointer) < 1)
             {
+        __afl_observe_state(0,0);
+
                 goto fail;
             }
 
             switch (input_pointer[1])
             {
                 case 'b':
+        __afl_observe_state(0,0);
+
                     *output_pointer++ = '\b';
                     break;
                 case 'f':
+        __afl_observe_state(0,0);
+
                     *output_pointer++ = '\f';
                     break;
                 case 'n':
+        __afl_observe_state(0,0);
+
                     *output_pointer++ = '\n';
                     break;
                 case 'r':
+        __afl_observe_state(0,0);
+
                     *output_pointer++ = '\r';
                     break;
                 case 't':
+        __afl_observe_state(0,0);
+
                     *output_pointer++ = '\t';
                     break;
                 case '\"':
+        __afl_observe_state(0,0);
+
                 case '\\':
+        __afl_observe_state(0,0);
+
                 case '/':
+        __afl_observe_state(0,0);
+
                     *output_pointer++ = input_pointer[1];
                     break;
 
                 /* UTF-16 literal */
                 case 'u':
+        __afl_observe_state(0,0);
+
                     sequence_length = utf16_literal_to_utf8(input_pointer, input_end, &output_pointer);
                     if (sequence_length == 0)
                     {
+        __afl_observe_state(0,0);
+
                         /* failed to convert UTF16-literal to UTF-8 */
                         goto fail;
                     }
                     break;
 
                 default:
+        __afl_observe_state(0,0);
+
                     goto fail;
             }
+        __afl_observe_state(0,0);
+
             input_pointer += sequence_length;
         }
     }
+        __afl_observe_state(0,0);
+
 
     /* zero terminate the output */
     *output_pointer = '\0';
@@ -812,13 +933,18 @@ static cJSON_bool parse_string(cJSON * const item, parse_buffer * const input_bu
 fail:
     if (output != NULL)
     {
+        __afl_observe_state(0,0);
+
         input_buffer->hooks.deallocate(output);
     }
 
     if (input_pointer != NULL)
     {
+        __afl_observe_state(0,0);
+
         input_buffer->offset = (size_t)(input_pointer - input_buffer->content);
     }
+        __afl_observe_state(0,0);
 
     return false;
 }
@@ -826,6 +952,8 @@ fail:
 /* Render the cstring provided to an escaped version that can be printed. */
 static cJSON_bool print_string_ptr(const unsigned char * const input, printbuffer * const output_buffer)
 {
+        __afl_observe_state(0,0);
+    
     const unsigned char *input_pointer = NULL;
     unsigned char *output = NULL;
     unsigned char *output_pointer = NULL;
@@ -835,21 +963,31 @@ static cJSON_bool print_string_ptr(const unsigned char * const input, printbuffe
 
     if (output_buffer == NULL)
     {
+        __afl_observe_state(0,0);
+
         return false;
     }
+        __afl_observe_state(0,0);
 
     /* empty string */
     if (input == NULL)
     {
+        __afl_observe_state(0,0);
+
         output = ensure(output_buffer, sizeof("\"\""));
         if (output == NULL)
         {
+        __afl_observe_state(0,0);
+
             return false;
         }
+        __afl_observe_state(0,0);
+
         strcpy((char*)output, "\"\"");
 
         return true;
     }
+        __afl_observe_state(0,0);
 
     /* set "flag" to 1 if something needs to be escaped */
     for (input_pointer = input; *input_pointer; input_pointer++)
@@ -857,35 +995,60 @@ static cJSON_bool print_string_ptr(const unsigned char * const input, printbuffe
         switch (*input_pointer)
         {
             case '\"':
+        __afl_observe_state(0,0);
+
             case '\\':
+        __afl_observe_state(0,0);
+
             case '\b':
+        __afl_observe_state(0,0);
+
             case '\f':
+        __afl_observe_state(0,0);
+
             case '\n':
+        __afl_observe_state(0,0);
+
             case '\r':
+        __afl_observe_state(0,0);
+
             case '\t':
+        __afl_observe_state(0,0);
+
                 /* one character escape sequence */
                 escape_characters++;
                 break;
             default:
+        __afl_observe_state(0,0);
+
                 if (*input_pointer < 32)
                 {
+        __afl_observe_state(0,0);
+
                     /* UTF-16 escape sequence uXXXX */
                     escape_characters += 5;
                 }
                 break;
         }
     }
+        __afl_observe_state(0,0);
+
     output_length = (size_t)(input_pointer - input) + escape_characters;
 
     output = ensure(output_buffer, output_length + sizeof("\"\""));
     if (output == NULL)
     {
+        __afl_observe_state(0,0);
+
         return false;
     }
+        __afl_observe_state(0,0);
 
     /* no characters have to be escaped */
     if (escape_characters == 0)
     {
+        __afl_observe_state(0,0);
+
         output[0] = '\"';
         memcpy(output + 1, input, output_length);
         output[output_length + 1] = '\"';
@@ -893,6 +1056,7 @@ static cJSON_bool print_string_ptr(const unsigned char * const input, printbuffe
 
         return true;
     }
+        __afl_observe_state(0,0);
 
     output[0] = '\"';
     output_pointer = output + 1;
@@ -901,44 +1065,68 @@ static cJSON_bool print_string_ptr(const unsigned char * const input, printbuffe
     {
         if ((*input_pointer > 31) && (*input_pointer != '\"') && (*input_pointer != '\\'))
         {
+        __afl_observe_state(0,0);
+
             /* normal character, copy */
             *output_pointer = *input_pointer;
         }
         else
         {
+        __afl_observe_state(0,0);
+
             /* character needs to be escaped */
             *output_pointer++ = '\\';
             switch (*input_pointer)
             {
                 case '\\':
+        __afl_observe_state(0,0);
+
                     *output_pointer = '\\';
                     break;
                 case '\"':
+        __afl_observe_state(0,0);
+
                     *output_pointer = '\"';
                     break;
                 case '\b':
+        __afl_observe_state(0,0);
+
                     *output_pointer = 'b';
                     break;
                 case '\f':
+        __afl_observe_state(0,0);
+
                     *output_pointer = 'f';
                     break;
                 case '\n':
+        __afl_observe_state(0,0);
+
                     *output_pointer = 'n';
                     break;
                 case '\r':
+        __afl_observe_state(0,0);
+
                     *output_pointer = 'r';
                     break;
                 case '\t':
+        __afl_observe_state(0,0);
+
                     *output_pointer = 't';
                     break;
                 default:
+        __afl_observe_state(0,0);
+
                     /* escape and print as unicode codepoint */
                     sprintf((char*)output_pointer, "u%04x", *input_pointer);
                     output_pointer += 4;
                     break;
             }
         }
+        __afl_observe_state(0,0);
+
     }
+        __afl_observe_state(0,0);
+
     output[output_length + 1] = '\"';
     output[output_length + 2] = '\0';
 
@@ -1220,6 +1408,7 @@ static cJSON_bool parse_value(cJSON * const item, parse_buffer * const input_buf
     // item在这里是最后parse出来的东西。
     if ((input_buffer == NULL) || (input_buffer->content == NULL))
     {
+        __afl_observe_state(0,0);
         return false; /* no input */
     }
 
@@ -1227,6 +1416,8 @@ static cJSON_bool parse_value(cJSON * const item, parse_buffer * const input_buf
     /* null */
     if (can_read(input_buffer, 4) && (strncmp((const char*)buffer_at_offset(input_buffer), "null", 4) == 0))
     {
+        __afl_observe_state(0,0);
+
         item->type = cJSON_NULL;
         input_buffer->offset += 4;
         return true;
@@ -1234,6 +1425,8 @@ static cJSON_bool parse_value(cJSON * const item, parse_buffer * const input_buf
     /* false */
     if (can_read(input_buffer, 5) && (strncmp((const char*)buffer_at_offset(input_buffer), "false", 5) == 0))
     {
+        __afl_observe_state(0,0);
+
         item->type = cJSON_False;
         input_buffer->offset += 5;
         return true;
@@ -1241,6 +1434,8 @@ static cJSON_bool parse_value(cJSON * const item, parse_buffer * const input_buf
     /* true */
     if (can_read(input_buffer, 4) && (strncmp((const char*)buffer_at_offset(input_buffer), "true", 4) == 0))
     {
+        __afl_observe_state(0,0);
+
         item->type = cJSON_True;
         item->valueint = 1;
         input_buffer->offset += 4;
@@ -1249,22 +1444,30 @@ static cJSON_bool parse_value(cJSON * const item, parse_buffer * const input_buf
     /* string */
     if (can_access_at_index(input_buffer, 0) && (buffer_at_offset(input_buffer)[0] == '\"'))
     {
+        __afl_observe_state(0,0);
+
         //JY8 开始
         return parse_string(item, input_buffer);
     }
     /* number */
     if (can_access_at_index(input_buffer, 0) && ((buffer_at_offset(input_buffer)[0] == '-') || ((buffer_at_offset(input_buffer)[0] >= '0') && (buffer_at_offset(input_buffer)[0] <= '9'))))
     {
+        __afl_observe_state(0,0);
+
         return parse_number(item, input_buffer);
     }
     /* array */
     if (can_access_at_index(input_buffer, 0) && (buffer_at_offset(input_buffer)[0] == '['))
     {
+        __afl_observe_state(0,0);
+
         return parse_array(item, input_buffer);
     }
     /* object */
     if (can_access_at_index(input_buffer, 0) && (buffer_at_offset(input_buffer)[0] == '{'))
     {
+        __afl_observe_state(0,0);
+
         return parse_object(item, input_buffer);
     }
 
@@ -1348,11 +1551,14 @@ static cJSON_bool print_value(const cJSON * const item, printbuffer * const outp
 /* Build an array from input text. */
 static cJSON_bool parse_array(cJSON * const item, parse_buffer * const input_buffer)
 {
+        __afl_observe_state(0,0);
+
     cJSON *head = NULL; /* head of the linked list */
     cJSON *current_item = NULL;
 
     if (input_buffer->depth >= CJSON_NESTING_LIMIT)
     {
+        __afl_observe_state(0,0);
         return false; /* to deeply nested */
     }
     input_buffer->depth++;
@@ -1360,23 +1566,29 @@ static cJSON_bool parse_array(cJSON * const item, parse_buffer * const input_buf
     if (buffer_at_offset(input_buffer)[0] != '[')
     {
         /* not an array */
+        __afl_observe_state(0,0);
         goto fail;
     }
 
     input_buffer->offset++;
+        __afl_observe_state(0,0);
     buffer_skip_whitespace(input_buffer);
     if (can_access_at_index(input_buffer, 0) && (buffer_at_offset(input_buffer)[0] == ']'))
     {
         /* empty array */
+        __afl_observe_state(0,0);
         goto success;
     }
+        __afl_observe_state(0,0);
 
     /* check if we skipped to the end of the buffer */
     if (cannot_access_at_index(input_buffer, 0))
     {
+        __afl_observe_state(0,0);
         input_buffer->offset--;
         goto fail;
     }
+        __afl_observe_state(0,0);
 
     /* step back to character in front of the first element */
     input_buffer->offset--;
@@ -1384,43 +1596,53 @@ static cJSON_bool parse_array(cJSON * const item, parse_buffer * const input_buf
     do
     {
         /* allocate next item */
+        __afl_observe_state(0,0);
         cJSON *new_item = cJSON_New_Item(&(input_buffer->hooks));
         if (new_item == NULL)
         {
+        __afl_observe_state(0,0);
             goto fail; /* allocation failure */
         }
+        __afl_observe_state(0,0);
 
         /* attach next item to list */
         if (head == NULL)
         {
+        __afl_observe_state(0,0);
             /* start the linked list */
             current_item = head = new_item;
         }
         else
         {
+        __afl_observe_state(0,0);
             /* add to the end and advance */
             current_item->next = new_item;
             new_item->prev = current_item;
             current_item = new_item;
         }
 
+        __afl_observe_state(0,0);
         /* parse next value */
         input_buffer->offset++;
         buffer_skip_whitespace(input_buffer);
         if (!parse_value(current_item, input_buffer))
         {
+        __afl_observe_state(0,0);
             goto fail; /* failed to parse value */
         }
+        __afl_observe_state(0,0);
         buffer_skip_whitespace(input_buffer);
     }
     while (can_access_at_index(input_buffer, 0) && (buffer_at_offset(input_buffer)[0] == ','));
 
     if (cannot_access_at_index(input_buffer, 0) || buffer_at_offset(input_buffer)[0] != ']')
     {
+        __afl_observe_state(0,0);
         goto fail; /* expected end of array */
     }
 
 success:
+        __afl_observe_state(0,0);
     input_buffer->depth--;
 
     item->type = cJSON_Array;
@@ -1431,8 +1653,10 @@ success:
     return true;
 
 fail:
+        __afl_observe_state(0,0);
     if (head != NULL)
     {
+        __afl_observe_state(0,0);
         cJSON_Delete(head);
     }
 
@@ -1442,36 +1666,45 @@ fail:
 /* Render an array to text */
 static cJSON_bool print_array(const cJSON * const item, printbuffer * const output_buffer)
 {
+        __afl_observe_state(0,0);
     unsigned char *output_pointer = NULL;
     size_t length = 0;
     cJSON *current_element = item->child;
 
+        __afl_observe_state(0,0);
     if (output_buffer == NULL)
     {
+        __afl_observe_state(0,0);
         return false;
     }
 
     /* Compose the output array. */
     /* opening square bracket */
+        __afl_observe_state(0,0);
     output_pointer = ensure(output_buffer, 1);
     if (output_pointer == NULL)
     {
+        __afl_observe_state(0,0);
         return false;
     }
 
     *output_pointer = '[';
     output_buffer->offset++;
     output_buffer->depth++;
+        __afl_observe_state(0,0);
 
     while (current_element != NULL)
     {
         if (!print_value(current_element, output_buffer))
         {
+        __afl_observe_state(0,0);
             return false;
         }
+        __afl_observe_state(0,0);
         update_offset(output_buffer);
         if (current_element->next)
         {
+        __afl_observe_state(0,0);
             length = (size_t) (output_buffer->format ? 2 : 1);
             output_pointer = ensure(output_buffer, length + 1);
             if (output_pointer == NULL)
@@ -1486,14 +1719,18 @@ static cJSON_bool print_array(const cJSON * const item, printbuffer * const outp
             *output_pointer = '\0';
             output_buffer->offset += length;
         }
+        __afl_observe_state(0,0);
         current_element = current_element->next;
     }
 
     output_pointer = ensure(output_buffer, 2);
+        __afl_observe_state(0,0);
     if (output_pointer == NULL)
     {
+        __afl_observe_state(0,0);
         return false;
     }
+        __afl_observe_state(0,0);
     *output_pointer++ = ']';
     *output_pointer = '\0';
     output_buffer->depth--;
@@ -1504,67 +1741,85 @@ static cJSON_bool print_array(const cJSON * const item, printbuffer * const outp
 /* Build an object from the text. */
 static cJSON_bool parse_object(cJSON * const item, parse_buffer * const input_buffer)
 {
+        __afl_observe_state(0,0);
     cJSON *head = NULL; /* linked list head */
     cJSON *current_item = NULL;
 
+        __afl_observe_state(0,0);
     if (input_buffer->depth >= CJSON_NESTING_LIMIT)
     {
+        __afl_observe_state(0,0);
         return false; /* to deeply nested */
     }
     input_buffer->depth++;
 
+        __afl_observe_state(0,0);
     if (cannot_access_at_index(input_buffer, 0) || (buffer_at_offset(input_buffer)[0] != '{'))
     {
+        __afl_observe_state(0,0);
         goto fail; /* not an object */
     }
 
+        __afl_observe_state(0,0);
     input_buffer->offset++;
     buffer_skip_whitespace(input_buffer);
     if (can_access_at_index(input_buffer, 0) && (buffer_at_offset(input_buffer)[0] == '}'))
     {
+        __afl_observe_state(0,0);
         goto success; /* empty object */
     }
 
+        __afl_observe_state(0,0);
     /* check if we skipped to the end of the buffer */
     if (cannot_access_at_index(input_buffer, 0))
     {
+        __afl_observe_state(0,0);
         input_buffer->offset--;
         goto fail;
     }
 
+        __afl_observe_state(0,0);
     /* step back to character in front of the first element */
     input_buffer->offset--;
     /* loop through the comma separated array elements */
     do
     {
         /* allocate next item */
+        __afl_observe_state(0,0);
         cJSON *new_item = cJSON_New_Item(&(input_buffer->hooks));
         if (new_item == NULL)
         {
+        __afl_observe_state(0,0);
             goto fail; /* allocation failure */
         }
 
+        __afl_observe_state(0,0);
         /* attach next item to list */
         if (head == NULL)
         {
             /* start the linked list */
+        __afl_observe_state(0,0);
             current_item = head = new_item;
         }
         else
         {
+        __afl_observe_state(0,0);
             /* add to the end and advance */
             current_item->next = new_item;
             new_item->prev = current_item;
             current_item = new_item;
         }
 
+        __afl_observe_state(0,0);
         /* parse the name of the child */
         input_buffer->offset++;
         buffer_skip_whitespace(input_buffer);
         if (!parse_string(current_item, input_buffer))
         {
+        __afl_observe_state(0,0);
             goto fail; /* faile to parse name */
         }
+        __afl_observe_state(0,0);
         buffer_skip_whitespace(input_buffer);
 
         /* swap valuestring and string, because we parsed the name */
@@ -1573,26 +1828,33 @@ static cJSON_bool parse_object(cJSON * const item, parse_buffer * const input_bu
 
         if (cannot_access_at_index(input_buffer, 0) || (buffer_at_offset(input_buffer)[0] != ':'))
         {
+        __afl_observe_state(0,0);
             goto fail; /* invalid object */
         }
 
         /* parse the value */
+        __afl_observe_state(0,0);
         input_buffer->offset++;
         buffer_skip_whitespace(input_buffer);
         if (!parse_value(current_item, input_buffer))
         {
+        __afl_observe_state(0,0);
             goto fail; /* failed to parse value */
         }
+        __afl_observe_state(0,0);
         buffer_skip_whitespace(input_buffer);
     }
     while (can_access_at_index(input_buffer, 0) && (buffer_at_offset(input_buffer)[0] == ','));
 
+        __afl_observe_state(0,0);
     if (cannot_access_at_index(input_buffer, 0) || (buffer_at_offset(input_buffer)[0] != '}'))
     {
+        __afl_observe_state(0,0);
         goto fail; /* expected end of object */
     }
 
 success:
+        __afl_observe_state(0,0);
     input_buffer->depth--;
 
     item->type = cJSON_Object;
@@ -1602,8 +1864,10 @@ success:
     return true;
 
 fail:
+        __afl_observe_state(0,0);
     if (head != NULL)
     {
+        __afl_observe_state(0,0);
         cJSON_Delete(head);
     }
 
@@ -1613,73 +1877,95 @@ fail:
 /* Render an object to text. */
 static cJSON_bool print_object(const cJSON * const item, printbuffer * const output_buffer)
 {
+        __afl_observe_state(0,0);
     unsigned char *output_pointer = NULL;
     size_t length = 0;
     cJSON *current_item = item->child;
 
     if (output_buffer == NULL)
     {
+        __afl_observe_state(0,0);
         return false;
     }
 
+        __afl_observe_state(0,0);
     /* Compose the output: */
     length = (size_t) (output_buffer->format ? 2 : 1); /* fmt: {\n */
     output_pointer = ensure(output_buffer, length + 1);
     if (output_pointer == NULL)
     {
+        __afl_observe_state(0,0);
         return false;
     }
 
+        __afl_observe_state(0,0);
     *output_pointer++ = '{';
     output_buffer->depth++;
     if (output_buffer->format)
     {
+        __afl_observe_state(0,0);
         *output_pointer++ = '\n';
     }
+        __afl_observe_state(0,0);
     output_buffer->offset += length;
 
     while (current_item)
     {
+        __afl_observe_state(0,0);
         if (output_buffer->format)
         {
+        __afl_observe_state(0,0);
             size_t i;
             output_pointer = ensure(output_buffer, output_buffer->depth);
             if (output_pointer == NULL)
             {
+        __afl_observe_state(0,0);
                 return false;
             }
+        __afl_observe_state(0,0);
             for (i = 0; i < output_buffer->depth; i++)
             {
+        __afl_observe_state(0,0);
                 *output_pointer++ = '\t';
             }
+        __afl_observe_state(0,0);
             output_buffer->offset += output_buffer->depth;
         }
 
+        __afl_observe_state(0,0);
         /* print key */
         if (!print_string_ptr((unsigned char*)current_item->string, output_buffer))
         {
+        __afl_observe_state(0,0);
             return false;
         }
+        __afl_observe_state(0,0);
         update_offset(output_buffer);
 
         length = (size_t) (output_buffer->format ? 2 : 1);
         output_pointer = ensure(output_buffer, length);
         if (output_pointer == NULL)
         {
+        __afl_observe_state(0,0);
             return false;
         }
+        __afl_observe_state(0,0);
         *output_pointer++ = ':';
         if (output_buffer->format)
         {
+        __afl_observe_state(0,0);
             *output_pointer++ = '\t';
         }
+        __afl_observe_state(0,0);
         output_buffer->offset += length;
 
         /* print value */
         if (!print_value(current_item, output_buffer))
         {
+        __afl_observe_state(0,0);
             return false;
         }
+        __afl_observe_state(0,0);
         update_offset(output_buffer);
 
         /* print comma if not last */
@@ -1687,40 +1973,53 @@ static cJSON_bool print_object(const cJSON * const item, printbuffer * const out
         output_pointer = ensure(output_buffer, length + 1);
         if (output_pointer == NULL)
         {
+        __afl_observe_state(0,0);
             return false;
         }
+        __afl_observe_state(0,0);
         if (current_item->next)
         {
+        __afl_observe_state(0,0);
             *output_pointer++ = ',';
         }
 
+        __afl_observe_state(0,0);
         if (output_buffer->format)
         {
+        __afl_observe_state(0,0);
             *output_pointer++ = '\n';
         }
+        __afl_observe_state(0,0);
         *output_pointer = '\0';
         output_buffer->offset += length;
 
         current_item = current_item->next;
     }
 
+        __afl_observe_state(0,0);
     output_pointer = ensure(output_buffer, output_buffer->format ? (output_buffer->depth + 1) : 2);
     if (output_pointer == NULL)
     {
+        __afl_observe_state(0,0);
         return false;
     }
+        __afl_observe_state(0,0);
     if (output_buffer->format)
     {
+        __afl_observe_state(0,0);
         size_t i;
         for (i = 0; i < (output_buffer->depth - 1); i++)
         {
+        __afl_observe_state(0,0);
             *output_pointer++ = '\t';
         }
     }
+        __afl_observe_state(0,0);
     *output_pointer++ = '}';
     *output_pointer = '\0';
     output_buffer->depth--;
 
+        __afl_observe_state(0,0);
     return true;
 }
 
@@ -2957,6 +3256,7 @@ char* read_input() {
 }
 
 int main(int argc, char** argv) {
+    __afl_start_observe();
     char* string = read_input();
     printf(string);
     cJSON *json = cJSON_Parse(string);
@@ -2965,6 +3265,7 @@ int main(int argc, char** argv) {
         printf("Invalid json.\n");
         exit(1);
     }
+    __afl_end_observe();
     //printf(cJSON_Print(json));
 
 }

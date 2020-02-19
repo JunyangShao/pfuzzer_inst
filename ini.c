@@ -7,6 +7,11 @@ https://github.com/benhoyt/inih
 
 */
 
+void __afl_observe_state(int,int);
+void __afl_start_observe();
+void __afl_end_observe();
+void __afl_observe_action(int,int);
+
 #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -80,6 +85,7 @@ static char* strncpy0(char* dest, const char* src, size_t size)
 int ini_parse_stream(ini_reader reader, void* stream, ini_handler handler,
                      void* user)
 {
+    __afl_observe_state(0,0);
     /* Uses a fair bit of stack (use heap instead if you need to) */
 #if INI_USE_STACK
     char line[INI_MAX_LINE];
@@ -117,6 +123,8 @@ int ini_parse_stream(ini_reader reader, void* stream, ini_handler handler,
 
     /* Scan through stream line by line */
     while (reader(line, max_line, stream) != NULL) {
+    __afl_observe_state(0,0);
+
 #if INI_ALLOW_REALLOC && !INI_USE_STACK
         offset = strlen(line);
         while (offset == max_line - 1 && line[offset - 1] != '\n') {
@@ -136,6 +144,7 @@ int ini_parse_stream(ini_reader reader, void* stream, ini_handler handler,
             offset += strlen(line + offset);
         }
 #endif
+    __afl_observe_state(0,0);
 
         lineno++;
 
@@ -144,66 +153,96 @@ int ini_parse_stream(ini_reader reader, void* stream, ini_handler handler,
         if (lineno == 1 && (unsigned char)start[0] == 0xEF &&
                            (unsigned char)start[1] == 0xBB &&
                            (unsigned char)start[2] == 0xBF) {
+    __afl_observe_state(0,0);
             start += 3;
         }
+    __afl_observe_state(0,0);
 #endif
         start = lskip(rstrip(start));
 
         if (strchr(INI_START_COMMENT_PREFIXES, *start)) {
+    __afl_observe_state(0,0);
             /* Start-of-line comment */
         }
 #if INI_ALLOW_MULTILINE
         else if (*prev_name && *start && start > line) {
             /* Non-blank line with leading whitespace, treat as continuation
                of previous name's value (as per Python configparser). */
-            if (!HANDLER(user, section, prev_name, start) && !error)
+    __afl_observe_state(0,0);
+            if (!HANDLER(user, section, prev_name, start) && !error){
+    __afl_observe_state(0,0);
                 error = lineno;
+
+            }
+    __afl_observe_state(0,0);
         }
 #endif
         else if (*start == '[') {
             /* A "[section]" line */
+    __afl_observe_state(0,0);
             end = find_chars_or_comment(start + 1, "]");
             if (*end == ']') {
+    __afl_observe_state(0,0);
                 *end = '\0';
                 strncpy0(section, start + 1, sizeof(section));
                 *prev_name = '\0';
             }
             else if (!error) {
+    __afl_observe_state(0,0);
                 /* No ']' found on section line */
                 error = lineno;
             }
+    __afl_observe_state(0,0);
         }
         else if (*start) {
+    __afl_observe_state(0,0);
             /* Not a comment, must be a name[=:]value pair */
             end = find_chars_or_comment(start, "=:");
             if (*end == '=' || *end == ':') {
+    __afl_observe_state(0,0);
                 *end = '\0';
                 name = rstrip(start);
                 value = end + 1;
 #if INI_ALLOW_INLINE_COMMENTS
                 end = find_chars_or_comment(value, NULL);
-                if (*end)
+                if (*end){
+    __afl_observe_state(0,0);
                     *end = '\0';
+
+                }
+    __afl_observe_state(0,0);
 #endif
                 value = lskip(value);
                 rstrip(value);
+    __afl_observe_state(0,0);
 
                 /* Valid name[=:]value pair found, call handler */
                 strncpy0(prev_name, name, sizeof(prev_name));
-                if (!HANDLER(user, section, name, value) && !error)
+    __afl_observe_state(0,0);
+                if (!HANDLER(user, section, name, value) && !error){
+    __afl_observe_state(0,0);
                     error = lineno;
+
+                }
             }
             else if (!error) {
                 /* No '=' or ':' found on name[=:]value line */
+    __afl_observe_state(0,0);
                 error = lineno;
             }
+    __afl_observe_state(0,0);
         }
 
+    __afl_observe_state(0,0);
 #if INI_STOP_ON_FIRST_ERROR
-        if (error)
+        if (error){
+    __afl_observe_state(0,0);
             break;
+
+        }
 #endif
     }
+    __afl_observe_state(0,0);
 
 #if !INI_USE_STACK
     free(line);
@@ -297,9 +336,13 @@ char* read_input() {
 }
 
 int main(int argc, char** argv) {
+    __afl_start_observe();
+
     configuration config;
     char* string = read_input();
     printf(string);
+    __afl_end_observe();
+
     return ini_parse_string(string, handler, &config);
 
 }

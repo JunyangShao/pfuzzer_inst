@@ -5,9 +5,17 @@
 
 #include "csvparser.h"
 
+
+
 #ifdef __cplusplus
-extern "C" {
+extern "C" { 
 #endif
+
+void __afl_observe_state(int,int);
+void __afl_start_observe();
+void __afl_end_observe();
+void __afl_observe_action(int,int);
+
 
 CsvParser *CsvParser_new(const char *filePath, const char *delimiter, int firstLineIsHeader) {
     CsvParser *csvParser = (CsvParser*)malloc(sizeof(CsvParser));
@@ -78,51 +86,74 @@ void CsvParser_destroy_row(CsvRow *csvRow) {
 }
 
 CsvRow *CsvParser_getHeader(CsvParser *csvParser) {
+        __afl_observe_state(0,0);
     if (! csvParser->firstLineIsHeader_) {
+        __afl_observe_state(0,0);
         _CsvParser_setErrorMessage(csvParser, "Cannot supply header, as current CsvParser object does not support header");
         return NULL;
     }
+        __afl_observe_state(0,0);
+
     if (csvParser->header_ == NULL) {
+        __afl_observe_state(0,0);
+
         csvParser->header_ = _CsvParser_getRow(csvParser);
     }
+        __afl_observe_state(0,0);
+
     return csvParser->header_;
 }
 
 CsvRow *CsvParser_getRow(CsvParser *csvParser) {
+        __afl_observe_state(0,0);
     if (csvParser->firstLineIsHeader_ && csvParser->header_ == NULL) {
+        __afl_observe_state(0,0);
         csvParser->header_ = _CsvParser_getRow(csvParser);
     }
+        __afl_observe_state(0,0);
     return _CsvParser_getRow(csvParser);
 }
 
 int CsvParser_getNumFields(CsvRow *csvRow) {
+        __afl_observe_state(0,0);
     return csvRow->numOfFields_;
 }
 
 char **CsvParser_getFields(CsvRow *csvRow) {
+        __afl_observe_state(0,0);
     return csvRow->fields_;
 }
 
 CsvRow *_CsvParser_getRow(CsvParser *csvParser) {
+        __afl_observe_state(0,0);
     int numRowRealloc = 0;
     int acceptedFields = 64;
     int acceptedCharsInField = 64;
     if (csvParser->filePath_ == NULL && (! csvParser->fromString_)) {
+        __afl_observe_state(0,0);
         _CsvParser_setErrorMessage(csvParser, "Supplied CSV file path is NULL");
         return NULL;
     }
+        __afl_observe_state(0,0);
     if (csvParser->csvString_ == NULL && csvParser->fromString_) {
+        __afl_observe_state(0,0);
         _CsvParser_setErrorMessage(csvParser, "Supplied CSV string is NULL");
         return NULL;
     }
+        __afl_observe_state(0,0);
     if (csvParser->delimiter_ == '\0') {
+        __afl_observe_state(0,0);
         _CsvParser_setErrorMessage(csvParser, "Supplied delimiter is not supported");
         return NULL;
     }
+        __afl_observe_state(0,0);
     if (! csvParser->fromString_) {
+        __afl_observe_state(0,0);
         if (csvParser->fileHandler_ == NULL) {
+        __afl_observe_state(0,0);
             csvParser->fileHandler_ = fopen(csvParser->filePath_, "r");
             if (csvParser->fileHandler_ == NULL) {
+        __afl_observe_state(0,0);
                 int errorNum = errno;
                 const char *errStr = strerror(errorNum);
                 char *errMsg = (char*)malloc(1024 + strlen(errStr));
@@ -132,8 +163,11 @@ CsvRow *_CsvParser_getRow(CsvParser *csvParser) {
                 free(errMsg);
                 return NULL;
             }
+        __afl_observe_state(0,0);
         }
+        __afl_observe_state(0,0);
     }
+        __afl_observe_state(0,0);
     CsvRow *csvRow = (CsvRow*)malloc(sizeof(CsvRow));
     csvRow->fields_ = (char**)malloc(acceptedFields * sizeof(char*));
     csvRow->numOfFields_ = 0;
@@ -145,68 +179,95 @@ CsvRow *_CsvParser_getRow(CsvParser *csvParser) {
     int lastCharIsQuote = 0;
     int isEndOfFile = 0;
     while (1) {
+        __afl_observe_state(0,0);
         char currChar = (csvParser->fromString_) ? csvParser->csvString_[csvParser->csvStringIter_] : fgetc(csvParser->fileHandler_);
         csvParser->csvStringIter_++;
         int endOfFileIndicator;
         if (csvParser->fromString_) {
+        __afl_observe_state(0,0);
             endOfFileIndicator = (currChar == '\0');
         } else {
+        __afl_observe_state(0,0);
             endOfFileIndicator = feof(csvParser->fileHandler_);
         }
+        __afl_observe_state(0,0);
         if (endOfFileIndicator) {
+        __afl_observe_state(0,0);
             if (currFieldCharIter == 0 && fieldIter == 0) {
+        __afl_observe_state(0,0);
                 _CsvParser_setErrorMessage(csvParser, "Reached EOF");
                 return NULL;
             }
+        __afl_observe_state(0,0);
             currChar = '\n';
             isEndOfFile = 1;
         }
+        __afl_observe_state(0,0);
         if (currChar == '\r') {
+        __afl_observe_state(0,0);
             continue;
         }
+        __afl_observe_state(0,0);
         if (currFieldCharIter == 0  && ! lastCharIsQuote) {
             if (currChar == '\"') {
+        __afl_observe_state(0,0);
                 inside_complex_field = 1;
                 lastCharIsQuote = 1;
                 continue;
             }
+        __afl_observe_state(0,0);
         } else if (currChar == '\"') {
+        __afl_observe_state(0,0);
             seriesOfQuotesLength++;
             inside_complex_field = (seriesOfQuotesLength % 2 == 0);
             if (inside_complex_field) {
+        __afl_observe_state(0,0);
                 currFieldCharIter--;
             }
+        __afl_observe_state(0,0);
         } else {
+        __afl_observe_state(0,0);
             seriesOfQuotesLength = 0;
         }
+        __afl_observe_state(0,0);
         if (isEndOfFile || ((currChar == csvParser->delimiter_ || currChar == '\n') && ! inside_complex_field) ){
+        __afl_observe_state(0,0);
             currField[lastCharIsQuote ? currFieldCharIter - 1 : currFieldCharIter] = '\0';
             csvRow->fields_[fieldIter] = (char*)malloc(currFieldCharIter + 1);
             strcpy(csvRow->fields_[fieldIter], currField);
             free(currField);
             csvRow->numOfFields_++;
             if (currChar == '\n') {
+        __afl_observe_state(0,0);
                 return csvRow;
             }
+        __afl_observe_state(0,0);
             if (csvRow->numOfFields_ != 0 && csvRow->numOfFields_ % acceptedFields == 0) {
+        __afl_observe_state(0,0);
                 csvRow->fields_ = (char**)realloc(csvRow->fields_, ((numRowRealloc + 2) * acceptedFields) * sizeof(char*));
                 numRowRealloc++;
             }
+        __afl_observe_state(0,0);
             acceptedCharsInField = 64;
             currField = (char*)malloc(acceptedCharsInField);
             currFieldCharIter = 0;
             fieldIter++;
             inside_complex_field = 0;
         } else {
+        __afl_observe_state(0,0);
             currField[currFieldCharIter] = currChar;
             currFieldCharIter++;
             if (currFieldCharIter == acceptedCharsInField - 1) {
+        __afl_observe_state(0,0);
                 acceptedCharsInField *= 2;
                 currField = (char*)realloc(currField, acceptedCharsInField);
             }
+        __afl_observe_state(0,0);
         }
+        __afl_observe_state(0,0);
         lastCharIsQuote = (currChar == '\"') ? 1 : 0;
     }
+        __afl_observe_state(0,0);
 }
 
 int _CsvParser_delimiterIsAccepted(const char *delimiter) {
@@ -249,6 +310,7 @@ char* read_input() {
 
 
 int main(int argc, char** argv) {
+    __afl_start_observe();
     char* string = read_input();
     printf(string);
     int i =  0;
@@ -276,6 +338,7 @@ int main(int argc, char** argv) {
         CsvParser_destroy_row(row);
     }
     CsvParser_destroy(csvparser);
+    __afl_end_observe();
     return 0;
 }
 

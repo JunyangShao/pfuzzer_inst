@@ -5,7 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+void __afl_observe_state(int,int);
+void __afl_start_observe();
+void __afl_end_observe();
+void __afl_observe_action(int,int);
 /* 
  * This is a compiler for the Tiny-C language.  Tiny-C is a
  * considerably stripped down version of C and it is meant as a
@@ -120,96 +123,198 @@ struct node { int kind; struct node *o1, *o2, *o3; int val; };
 typedef struct node node;
 
 node *new_node(int k)
-{ node *x = (node*)malloc(sizeof(node)); x->kind = k; return x; }
+{ 
+  __afl_observe_state(0,0);
+  node *x = (node*)malloc(sizeof(node)); x->kind = k; return x; 
+}
 
 node *paren_expr(); /* forward declaration */
 
 node *term()  /* <term> ::= <id> | <int> | <paren_expr> */
-{ node *x;
-  if (sym == ID) { x=new_node(VAR); x->val=id_name[0]-'a'; next_sym(); }
-  else if (sym == INT) { x=new_node(CST); x->val=int_val; next_sym(); }
-  else x = paren_expr();
+{ 
+  __afl_observe_state(0,0);
+  node *x;
+
+  if (sym == ID) { 
+  __afl_observe_state(0,0);
+    x=new_node(VAR); x->val=id_name[0]-'a'; next_sym(); }
+  else if (sym == INT) { 
+  __afl_observe_state(0,0);
+    x=new_node(CST); x->val=int_val; next_sym(); }
+  else {
+  __afl_observe_state(0,0);
+    x = paren_expr();}
+  __afl_observe_state(0,0);
+
   return x;
 }
 
 node *sum()  /* <sum> ::= <term> | <sum> "+" <term> | <sum> "-" <term> */
-{ node *t, *x = term();
+{ 
+  __afl_observe_state(0,0);
+  node *t, *x = term();
   while (sym == PLUS || sym == MINUS)
-    { t=x; x=new_node(sym==PLUS?ADD:SUB); next_sym(); x->o1=t; x->o2=term(); }
+    { 
+  __afl_observe_state(0,0);
+      t=x; x=new_node(sym==PLUS?ADD:SUB); next_sym(); x->o1=t; x->o2=term(); }
+  __afl_observe_state(0,0);
+  
   return x;
 }
 
 node *test()  /* <test> ::= <sum> | <sum> "<" <sum> */
-{ node *t, *x = sum();
+{ 
+  __afl_observe_state(0,0);
+  node *t, *x = sum();
   if (sym == LESS)
-    { t=x; x=new_node(LT); next_sym(); x->o1=t; x->o2=sum(); }
+    { 
+  __afl_observe_state(0,0);
+      t=x; x=new_node(LT); next_sym(); x->o1=t; x->o2=sum(); }
+  __afl_observe_state(0,0);
   return x;
 }
 
 node *expr()  /* <expr> ::= <test> | <id> "=" <expr> */
-{ node *t, *x;
-  if (sym != ID) return test();
+{ 
+  __afl_observe_state(0,0);
+  node *t, *x;
+  if (sym != ID){ 
+  __afl_observe_state(0,0);
+    return test();
+  }
+  __afl_observe_state(0,0);
   x = test();
   if (x->kind == VAR && sym == EQUAL)
-    { t=x; x=new_node(SET); next_sym(); x->o1=t; x->o2=expr(); }
+    { 
+  __afl_observe_state(0,0);
+      t=x; x=new_node(SET); next_sym(); x->o1=t; x->o2=expr(); }
+  __afl_observe_state(0,0);
   return x;
 }
 
 node *paren_expr()  /* <paren_expr> ::= "(" <expr> ")" */
-{ node *x;
-  if (sym == LPAR) next_sym(); else syntax_error();
+{ 
+  __afl_observe_state(0,0);
+  node *x;
+  if (sym == LPAR) {
+  __afl_observe_state(0,0);
+    next_sym();
+    } 
+    else{
+  __afl_observe_state(0,0);
+syntax_error();
+    } 
+  __afl_observe_state(0,0);
+
   x = expr();
-  if (sym == RPAR) next_sym(); else syntax_error();
+  if (sym == RPAR) {
+  __afl_observe_state(0,0);
+    next_sym();
+   } else{ 
+  __afl_observe_state(0,0);
+     syntax_error();
+   }
+  __afl_observe_state(0,0);
+
   return x;
 }
 
 node *statement()
-{ node *t, *x;
+{ 
+  __afl_observe_state(0,0);
+  node *t, *x;
   if (sym == IF_SYM)  /* "if" <paren_expr> <statement> */
-    { x = new_node(IF1);
+    { 
+  __afl_observe_state(0,0);
+      x = new_node(IF1);
       next_sym();
       x->o1 = paren_expr();
       x->o2 = statement();
       if (sym == ELSE_SYM)  /* ... "else" <statement> */
-        { x->kind = IF2;
+        { 
+  __afl_observe_state(0,0);
+          x->kind = IF2;
           next_sym();
           x->o3 = statement();
         }
+  __afl_observe_state(0,0);
+
     }
   else if (sym == WHILE_SYM)  /* "while" <paren_expr> <statement> */
-    { x = new_node(WHILE);
+    { 
+  __afl_observe_state(0,0);
+      x = new_node(WHILE);
       next_sym();
       x->o1 = paren_expr();
       x->o2 = statement();
     }
   else if (sym == DO_SYM)  /* "do" <statement> "while" <paren_expr> ";" */
-    { x = new_node(DO);
+    { 
+  __afl_observe_state(0,0);
+      x = new_node(DO);
       next_sym();
       x->o1 = statement();
-      if (sym == WHILE_SYM) next_sym(); else syntax_error();
+      if (sym == WHILE_SYM) {
+  __afl_observe_state(0,0);
+        next_sym();
+       } else {
+  __afl_observe_state(0,0);
+         syntax_error();
+       }
+  __afl_observe_state(0,0);
+
       x->o2 = paren_expr();
-      if (sym == SEMI) next_sym(); else syntax_error();
+      if (sym == SEMI) {
+  __afl_observe_state(0,0);
+        next_sym();
+       } else{ 
+  __afl_observe_state(0,0);
+         syntax_error();
+       }
     }
   else if (sym == SEMI)  /* ";" */
-    { x = new_node(EMPTY); next_sym(); }
+    { 
+  __afl_observe_state(0,0);
+      x = new_node(EMPTY); next_sym(); }
   else if (sym == LBRA)  /* "{" { <statement> } "}" */
-    { x = new_node(EMPTY);
+    { 
+  __afl_observe_state(0,0);
+      x = new_node(EMPTY);
       next_sym();
       while (sym != RBRA)
-        { t=x; x=new_node(SEQ); x->o1=t; x->o2=statement(); }
+        {
+  __afl_observe_state(0,0);
+           t=x; x=new_node(SEQ); x->o1=t; x->o2=statement(); }
       next_sym();
     }
   else  /* <expr> ";" */
-    { x = new_node(EXPR);
+    { 
+  __afl_observe_state(0,0);
+      x = new_node(EXPR);
       x->o1 = expr();
-      if (sym == SEMI) next_sym(); else syntax_error();
+      if (sym == SEMI) {
+  __afl_observe_state(0,0);
+        next_sym();
+       } else {
+  __afl_observe_state(0,0);
+         syntax_error();
+       }
     }
+  __afl_observe_state(0,0);
+
   return x;
 }
 
 node *program()  /* <program> ::= <statement> */
-{ node *x = new_node(PROG);
-  next_sym(); x->o1 = statement(); if (sym != EOI) syntax_error();
+{ 
+  __afl_observe_state(0,0);
+  node *x = new_node(PROG);
+  next_sym(); x->o1 = statement(); if (sym != EOI){ 
+  __afl_observe_state(0,0);
+    syntax_error();
+  }
+  __afl_observe_state(0,0);
+
   return x;
 }
 
@@ -269,14 +374,17 @@ void run()
       case JZ    : if (*--sp == 0) pc += *pc; else pc++; goto again;
       case JNZ   : if (*--sp != 0) pc += *pc; else pc++; goto again;
     }
-}
+}            
 
 /*---------------------------------------------------------------------------*/
 
 /* Main program. */
 
 int main()
-{ int i;
+{ 
+  __afl_start_observe();
+  
+  int i;
 
   c(program());
 
@@ -286,6 +394,8 @@ int main()
   for (i=0; i<26; i++)
     if (globals[i] != 0)
       printf("%c = %d\n", 'a'+i, globals[i]);
+
+  __afl_end_observe();
 
   return 0;
 }

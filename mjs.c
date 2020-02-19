@@ -46,6 +46,11 @@
 #define CS_P_STM32 16
 /* Next id: 18 */
 
+void __afl_observe_state(int,int);
+void __afl_start_observe();
+void __afl_end_observe();
+void __afl_observe_action(int,int);
+
 /* If not specified explicitly, we guess platform by defines. */
 #ifndef CS_PLATFORM
 
@@ -8752,6 +8757,7 @@ void mjs_destroy(struct mjs *mjs) {
 }
 
 struct mjs *mjs_create(void) {
+  // JY1 parse吗？
   mjs_val_t global_object;
   struct mjs *mjs = calloc(1, sizeof(*mjs));
   mbuf_init(&mjs->stack, 0);
@@ -8765,7 +8771,7 @@ struct mjs *mjs_create(void) {
   mbuf_init(&mjs->scopes, 0);
   mbuf_init(&mjs->loop_addresses, 0);
   mbuf_init(&mjs->json_visited_stack, 0);
-
+  // JY2 初始化buf
   mjs->bcode_len = 0;
 
   /*
@@ -10153,9 +10159,12 @@ clean:
 MJS_PRIVATE mjs_err_t mjs_exec_internal(struct mjs *mjs, const char *path,
                                         const char *src, int generate_jsc,
                                         mjs_val_t *res) {
+                                          
+  // JY5 从src里读取材料，默认的话是<stdin>，然后塞到mjs里面。
   size_t off = mjs->bcode_len;
   mjs_val_t r = MJS_UNDEFINED;
   mjs->error = mjs_parse(path, src, mjs);
+  // JY6 Parse
   if (cs_log_threshold >= LL_VERBOSE_DEBUG) mjs_dump(mjs, 1);
   if (generate_jsc == -1) generate_jsc = mjs->generate_jsc;
   if (mjs->error == MJS_OK) {
@@ -10227,6 +10236,7 @@ MJS_PRIVATE mjs_err_t mjs_exec_internal(struct mjs *mjs, const char *path,
 #endif
 
     mjs_execute(mjs, off, &r);
+    // Parse完了
   } else {
       return mjs->error;
   }
@@ -10237,6 +10247,7 @@ MJS_PRIVATE mjs_err_t mjs_exec_internal(struct mjs *mjs, const char *path,
 
 mjs_err_t mjs_exec(struct mjs *mjs, const char *src, mjs_val_t *res) {
   return mjs_exec_internal(mjs, "<stdin>", src, 0 /* generate_jsc */, res);
+  // JY4
 }
 
 mjs_err_t mjs_exec_file(struct mjs *mjs, const char *path, mjs_val_t *res) {
@@ -12609,11 +12620,12 @@ char* read_input() {
 // end adding
 
 int main(int argc, char *argv[]) {
+  __afl_start_observe();
   struct mjs *mjs = mjs_create();
+  // JY0 进入parse？
   mjs_val_t res = MJS_UNDEFINED;
   mjs_err_t err = MJS_OK;
   int i;
-
   for (i = 1; i < argc && argv[i][0] == '-' && err == MJS_OK; i++) {
     if (strcmp(argv[i], "-l") == 0 && i + 1 < argc) {
       cs_log_set_level(atoi(argv[++i]));
@@ -12643,6 +12655,7 @@ int main(int argc, char *argv[]) {
         mjs_print_error(mjs, stdout, NULL, 1 /* print_stack_trace */);
         return EXIT_FAILURE;
   }
+  //JY3 进入execution，parse也在这里？
   err = mjs_exec(mjs, read_input(), &res);
 
   if (err == MJS_OK) {
@@ -12652,7 +12665,7 @@ int main(int argc, char *argv[]) {
     mjs_print_error(mjs, stdout, NULL, 1 /* print_stack_trace */);
   }
   mjs_destroy(mjs);
-
+  __afl_end_observe();
   return EXIT_SUCCESS;
 }
 #ifdef MJS_MODULE_LINES
@@ -13115,18 +13128,26 @@ static void emit_op(struct pstate *pstate, int tok) {
     p->depth--;                                                                \
     return res;                                                                \
   } while (0)
-
+//JY14
 #define PARSE_RTL_BINOP(p, f1, f2, ops, prev_op)        \
   do {                                                  \
+  __afl_observe_state(0,0);                             \
     mjs_err_t res = MJS_OK;                             \
     (void) prev_op;                                     \
-    if ((res = f1(p, TOK_EOF)) != MJS_OK) return res;   \
+    if ((res = f1(p, TOK_EOF)) != MJS_OK){              \
+  __afl_observe_state(0,0);                             \
+       return res;                                      \
+       }                                                \
+  __afl_observe_state(0,0);                             \
     if (findtok(ops, p->tok.tok) != TOK_EOF) {          \
+  __afl_observe_state(0,0);                             \
       int op = p->tok.tok;                              \
       pnext1(p);                                        \
-      if ((res = f2(p, TOK_EOF)) != MJS_OK) return res; \
+      if ((res = f2(p, TOK_EOF)) != MJS_OK){ __afl_observe_state(0,0); return res;} \
+  __afl_observe_state(0,0);                             \
       emit_op(p, op);                                   \
     }                                                   \
+  __afl_observe_state(0,0);                             \
     return res;                                         \
   } while (0)
 
@@ -13144,14 +13165,25 @@ static void emit_init_offset(struct pstate *p) {
 #endif
 
 static mjs_err_t parse_statement_list(struct pstate *p, int et) {
+  __afl_observe_state(0,0);
   mjs_err_t res = MJS_OK;
   int drop = 0;
   pnext1(p);
   while (res == MJS_OK && p->tok.tok != TOK_EOF && p->tok.tok != et) {
-    if (drop) emit_byte(p, OP_DROP);
+  __afl_observe_state(0,0);
+    if (drop){
+  __afl_observe_state(0,0);
+       emit_byte(p, OP_DROP);
+    }
+  __afl_observe_state(0,0);
     res = parse_statement(p);
     drop = 1;
-    while (p->tok.tok == TOK_SEMICOLON) pnext1(p);
+    while (p->tok.tok == TOK_SEMICOLON){
+  __afl_observe_state(0,0);
+       pnext1(p);
+    }
+  __afl_observe_state(0,0);
+
   }
 
   /*
@@ -13165,18 +13197,29 @@ static mjs_err_t parse_statement_list(struct pstate *p, int et) {
 }
 
 static mjs_err_t parse_block(struct pstate *p, int mkscope) {
+  __afl_observe_state(0,0);
   mjs_err_t res = MJS_OK;
   p->depth++;
   if (p->depth > (STACK_LIMIT / BINOP_STACK_FRAME_SIZE)) {
+  __afl_observe_state(0,0);
     mjs_set_errorf(p->mjs, MJS_SYNTAX_ERROR, "parser stack overflow");
     res = MJS_SYNTAX_ERROR;
     return res;
   }
+  __afl_observe_state(0,0);
   LOG(LL_VERBOSE_DEBUG, ("[%.*s]", 10, p->tok.ptr));
-  if (mkscope) emit_byte(p, OP_NEW_SCOPE);
+  if (mkscope){
+  __afl_observe_state(0,0);
+     emit_byte(p, OP_NEW_SCOPE);
+  }
   res = parse_statement_list(p, TOK_CLOSE_CURLY);
+  //JY16
   EXPECT(p, TOK_CLOSE_CURLY);
-  if (mkscope) emit_byte(p, OP_DEL_SCOPE);
+  if (mkscope){
+  __afl_observe_state(0,0);
+     emit_byte(p, OP_DEL_SCOPE);
+  }
+  __afl_observe_state(0,0);
   return res;
 }
 
@@ -13502,18 +13545,24 @@ static mjs_err_t parse_ternary(struct pstate *p, int prev_op) {
 }
 
 static mjs_err_t parse_assignment(struct pstate *p, int prev_op) {
+  __afl_observe_state(0,0);
+  //JY13
   PARSE_RTL_BINOP(p, parse_ternary, parse_assignment, s_assign_ops, prev_op);
 }
 
 static mjs_err_t parse_expr(struct pstate *p) {
+  __afl_observe_state(0,0);
+  //JY12
   return parse_assignment(p, TOK_EOF);
 }
 
 static mjs_err_t parse_let(struct pstate *p) {
+  __afl_observe_state(0,0);
   mjs_err_t res = MJS_OK;
   LOG(LL_VERBOSE_DEBUG, ("[%.*s]", 10, p->tok.ptr));
   EXPECT(p, TOK_KEYWORD_LET);
   for (;;) {
+  __afl_observe_state(0,0);
     struct tok tmp = p->tok;
     EXPECT(p, TOK_IDENT);
 
@@ -13523,33 +13572,50 @@ static mjs_err_t parse_let(struct pstate *p) {
     emit_byte(p, OP_CREATE);
 
     if (p->tok.tok == TOK_ASSIGN) {
+  __afl_observe_state(0,0);
       pnext1(p);
       emit_byte(p, OP_PUSH_STR);
       emit_str(p, tmp.ptr, tmp.len);
       emit_byte(p, OP_FIND_SCOPE);
-      if ((res = parse_expr(p)) != MJS_OK) return res;
+      if ((res = parse_expr(p)) != MJS_OK){
+        // JY11 sub parse
+  __afl_observe_state(0,0);
+         return res;
+      }
+  __afl_observe_state(0,0);
       emit_op(p, TOK_ASSIGN);
     } else {
+  __afl_observe_state(0,0);
       emit_byte(p, OP_PUSH_UNDEF);
     }
     if (p->tok.tok == TOK_COMMA) {
+  __afl_observe_state(0,0);
       emit_byte(p, OP_DROP);
       pnext1(p);
     }
-    if (p->tok.tok == TOK_SEMICOLON || p->tok.tok == TOK_EOF) break;
+  __afl_observe_state(0,0);
+    if (p->tok.tok == TOK_SEMICOLON || p->tok.tok == TOK_EOF){
+  __afl_observe_state(0,0);
+       break;
+    }
+  __afl_observe_state(0,0);
   }
+  __afl_observe_state(0,0);
   return res;
 }
 
 static mjs_err_t parse_block_or_stmt(struct pstate *p, int cs) {
   if (ptest(p) == TOK_OPEN_CURLY) {
+  __afl_observe_state(0,0);
     return parse_block(p, cs);
   } else {
+  __afl_observe_state(0,0);
     return parse_statement(p);
   }
 }
 
 static mjs_err_t parse_for_in(struct pstate *p) {
+  __afl_observe_state(0,0);
   mjs_err_t res = MJS_OK;
   size_t off_b, off_check_end;
 
@@ -13558,12 +13624,14 @@ static mjs_err_t parse_for_in(struct pstate *p) {
 
   /* Put iterator variable name to the stack */
   if (p->tok.tok == TOK_KEYWORD_LET) {
+  __afl_observe_state(0,0);
     EXPECT(p, TOK_KEYWORD_LET);
     emit_byte(p, OP_PUSH_STR);
     emit_str(p, p->tok.ptr, p->tok.len);
     emit_byte(p, OP_PUSH_SCOPE);
     emit_byte(p, OP_CREATE);
   }
+  __afl_observe_state(0,0);
   emit_byte(p, OP_PUSH_STR);
   emit_str(p, p->tok.ptr, p->tok.len);
 
@@ -13589,11 +13657,21 @@ static mjs_err_t parse_for_in(struct pstate *p) {
 
   // Parse loop body
   if (p->tok.tok == TOK_OPEN_CURLY) {
-    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK) return res;
+  __afl_observe_state(0,0);
+    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK){
+  __afl_observe_state(0,0);
+       return res;
+    }
     pnext1(p);
   } else {
-    if ((res = parse_statement(p)) != MJS_OK) return res;
+  __afl_observe_state(0,0);
+    if ((res = parse_statement(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+       return res;
+    }
   }
+  __afl_observe_state(0,0);
+
   emit_byte(p, OP_DROP);
   emit_byte(p, OP_CONTINUE);
 
@@ -13630,6 +13708,7 @@ static int check_for_in(struct pstate *p) {
 }
 
 static mjs_err_t parse_for(struct pstate *p) {
+  __afl_observe_state(0,0);
   mjs_err_t res = MJS_OK;
   size_t off_b, off_c, off_init_end;
   size_t off_incr_begin, off_cond_begin, off_cond_end;
@@ -13641,6 +13720,8 @@ static mjs_err_t parse_for(struct pstate *p) {
 
   /* Look forward - is it for..in ? */
   if (check_for_in(p)) return parse_for_in(p);
+  //JY20
+  __afl_observe_state(0,0);
 
   /*
    * BC is a break+continue offsets (a part of OP_LOOP opcode)
@@ -13671,10 +13752,19 @@ static mjs_err_t parse_for(struct pstate *p) {
 
   /* Parse init statement */
   if (p->tok.tok == TOK_KEYWORD_LET) {
-    if ((res = parse_let(p)) != MJS_OK) return res;
+  __afl_observe_state(0,0);
+    if ((res = parse_let(p)) != MJS_OK) {
+  __afl_observe_state(0,0);
+      return res;
+    }
   } else {
-    if ((res = parse_expr(p)) != MJS_OK) return res;
+  __afl_observe_state(0,0);
+    if ((res = parse_expr(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+       return res;
+    }
   }
+  __afl_observe_state(0,0);
   EXPECT(p, TOK_SEMICOLON);
   emit_byte(p, OP_DROP);
 
@@ -13686,7 +13776,11 @@ static mjs_err_t parse_for(struct pstate *p) {
   off_cond_begin = p->cur_idx;
 
   /* Parse cond statement */
-  if ((res = parse_expr(p)) != MJS_OK) return res;
+  if ((res = parse_expr(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+     return res;
+  }
+  __afl_observe_state(0,0);
   EXPECT(p, TOK_SEMICOLON);
 
   /* Parse incr statement */
@@ -13694,7 +13788,10 @@ static mjs_err_t parse_for(struct pstate *p) {
   buf_cur_idx = p->cur_idx;
   p->cur_idx = off_incr_begin;
 
-  if ((res = parse_expr(p)) != MJS_OK) return res;
+  if ((res = parse_expr(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+     return res;
+  }
   EXPECT(p, TOK_CLOSE_PAREN);
   emit_byte(p, OP_DROP);
 
@@ -13703,10 +13800,12 @@ static mjs_err_t parse_for(struct pstate *p) {
    * off_cond_begin to the correct value
    */
   {
+  __afl_observe_state(0,0);
     int incr_size = p->cur_idx - off_incr_begin;
     off_cond_begin += incr_size;
     p->cur_idx = buf_cur_idx + incr_size;
   }
+  __afl_observe_state(0,0);
 
   /* p->cur_idx is now at the end of "cond" */
   /* Exit the loop if false */
@@ -13716,11 +13815,20 @@ static mjs_err_t parse_for(struct pstate *p) {
 
   /* Parse loop body */
   if (p->tok.tok == TOK_OPEN_CURLY) {
-    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK) return res;
+  __afl_observe_state(0,0);
+    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK){
+  __afl_observe_state(0,0);
+       return res;
+    }
     pnext1(p);
   } else {
-    if ((res = parse_statement(p)) != MJS_OK) return res;
+  __afl_observe_state(0,0);
+    if ((res = parse_statement(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+       return res;
+    }
   }
+  __afl_observe_state(0,0);
   emit_byte(p, OP_DROP);
   emit_byte(p, OP_CONTINUE);
 
@@ -13751,6 +13859,7 @@ static mjs_err_t parse_for(struct pstate *p) {
 }
 
 static mjs_err_t parse_while(struct pstate *p) {
+  __afl_observe_state(0,0);
   size_t off_cond_end, off_b;
   mjs_err_t res = MJS_OK;
 
@@ -13782,7 +13891,11 @@ static mjs_err_t parse_while(struct pstate *p) {
   emit_byte(p, 0); /* Point OP_CONTINUE to the next instruction */
 
   // parse condition statement
-  if ((res = parse_expr(p)) != MJS_OK) return res;
+  if ((res = parse_expr(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+     return res;
+  }
+  __afl_observe_state(0,0);
   EXPECT(p, TOK_CLOSE_PAREN);
 
   // Exit the loop if false
@@ -13792,11 +13905,20 @@ static mjs_err_t parse_while(struct pstate *p) {
 
   // Parse loop body
   if (p->tok.tok == TOK_OPEN_CURLY) {
-    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK) return res;
+  __afl_observe_state(0,0);
+    if ((res = parse_statement_list(p, TOK_CLOSE_CURLY)) != MJS_OK) {
+  __afl_observe_state(0,0);
+      return res;
+    }
     pnext1(p);
   } else {
-    if ((res = parse_statement(p)) != MJS_OK) return res;
+  __afl_observe_state(0,0);
+    if ((res = parse_statement(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+       return res;
+    }
   }
+  __afl_observe_state(0,0);
   emit_byte(p, OP_DROP);
   emit_byte(p, OP_CONTINUE);
 
@@ -13817,21 +13939,32 @@ static mjs_err_t parse_while(struct pstate *p) {
 }
 
 static mjs_err_t parse_if(struct pstate *p) {
+  __afl_observe_state(0,0);
   size_t off_if, off_endif;
   mjs_err_t res = MJS_OK;
   LOG(LL_VERBOSE_DEBUG, ("[%.*s]", 10, p->tok.ptr));
   EXPECT(p, TOK_KEYWORD_IF);
   EXPECT(p, TOK_OPEN_PAREN);
-  if ((res = parse_expr(p)) != MJS_OK) return res;
+  if ((res = parse_expr(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+     return res;
+  }
+  __afl_observe_state(0,0);
 
   emit_byte(p, OP_JMP_FALSE);
   off_if = p->cur_idx;
   emit_init_offset(p);
 
   EXPECT(p, TOK_CLOSE_PAREN);
-  if ((res = parse_block_or_stmt(p, 1)) != MJS_OK) return res;
+  if ((res = parse_block_or_stmt(p, 1)) != MJS_OK){
+    //JY23
+  __afl_observe_state(0,0);
+     return res;
+  }
+  __afl_observe_state(0,0);
 
   if (p->tok.tok == TOK_KEYWORD_ELSE) {
+  __afl_observe_state(0,0);
     /*
      * Else clause is present, so, if the condition is not true, the jump
      * target (off_endif) should be not the current offset, but the offset
@@ -13845,7 +13978,11 @@ static mjs_err_t parse_if(struct pstate *p) {
     off_endif = p->cur_idx;
 
     emit_byte(p, OP_DROP);
-    if ((res = parse_block_or_stmt(p, 1)) != MJS_OK) return res;
+    if ((res = parse_block_or_stmt(p, 1)) != MJS_OK){
+  __afl_observe_state(0,0);
+       return res;
+    }
+  __afl_observe_state(0,0);
     off_endelse = p->cur_idx;
 
     /*
@@ -13857,8 +13994,10 @@ static mjs_err_t parse_if(struct pstate *p) {
   } else {
     /* Else clause is not present, so, current offset is a jump target
      * (off_endif) */
+  __afl_observe_state(0,0);
     off_endif = p->cur_idx;
   }
+  __afl_observe_state(0,0);
 
   mjs_bcode_insert_offset(p, p->mjs, off_if,
                           off_endif - off_if - MJS_INIT_OFFSET_SIZE);
@@ -13880,12 +14019,15 @@ static void pstate_revert(struct pstate *p, struct pstate *old,
 }
 
 static mjs_err_t parse_return(struct pstate *p) {
+  __afl_observe_state(0,0);
   int old_bcode_gen_len;
   struct pstate p_saved;
   EXPECT(p, TOK_KEYWORD_RETURN);
   p_saved = *p;
   old_bcode_gen_len = p->mjs->bcode_gen.len;
   if (parse_expr(p) != MJS_OK) {
+    //JY18
+  __afl_observe_state(0,0);
     /*
      * Failed to parse an expression to return, so return the parser to the
      * prior state and push undefined.
@@ -13893,69 +14035,112 @@ static mjs_err_t parse_return(struct pstate *p) {
     pstate_revert(p, &p_saved, old_bcode_gen_len);
     emit_byte(p, OP_PUSH_UNDEF);
   }
+  __afl_observe_state(0,0);
   emit_byte(p, OP_SETRETVAL);
   emit_byte(p, OP_RETURN);
   return MJS_OK;
 }
 
 static mjs_err_t parse_statement(struct pstate *p) {
+  //JY9 Parse
+  __afl_observe_state(0,0);
   LOG(LL_VERBOSE_DEBUG, ("[%.*s]", 10, p->tok.ptr));
   switch (p->tok.tok) {
     case TOK_SEMICOLON:
+  __afl_observe_state(0,0);
       emit_byte(p, OP_PUSH_UNDEF);
       pnext1(p);
       return MJS_OK;
     case TOK_KEYWORD_LET:
+  __afl_observe_state(0,0);
       return parse_let(p);
+      //JY10 sub parse
     case TOK_OPEN_CURLY:
+  __afl_observe_state(0,0);
       return parse_block(p, 1);
+      //JY15
     case TOK_KEYWORD_RETURN:
+  __afl_observe_state(0,0);
       return parse_return(p);
+      //JY17
     case TOK_KEYWORD_FOR:
+  __afl_observe_state(0,0);
       return parse_for(p);
+      //JY19
     case TOK_KEYWORD_WHILE:
+  __afl_observe_state(0,0);
       return parse_while(p);
+      //JY21
     case TOK_KEYWORD_BREAK:
+  __afl_observe_state(0,0);
       emit_byte(p, OP_PUSH_UNDEF);
       emit_byte(p, OP_BREAK);
       pnext1(p);
       return MJS_OK;
     case TOK_KEYWORD_CONTINUE:
+  __afl_observe_state(0,0);
       emit_byte(p, OP_CONTINUE);
       pnext1(p);
       return MJS_OK;
     case TOK_KEYWORD_IF:
+  __afl_observe_state(0,0);
       return parse_if(p);
+      //JY22
     case TOK_KEYWORD_CASE:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_CATCH:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_DELETE:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_DO:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_INSTANCEOF:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_NEW:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_SWITCH:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_THROW:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_TRY:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_VAR:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_VOID:
+  __afl_observe_state(0,0);
     case TOK_KEYWORD_WITH:
+  __afl_observe_state(0,0);
       mjs_set_errorf(p->mjs, MJS_SYNTAX_ERROR, "[%.*s] is not implemented",
                      p->tok.len, p->tok.ptr);
       return MJS_SYNTAX_ERROR;
     default: {
+  __afl_observe_state(0,0);
       mjs_err_t res = MJS_OK;
       for (;;) {
-        if ((res = parse_expr(p)) != MJS_OK) return res;
-        if (p->tok.tok != TOK_COMMA) break;
+  __afl_observe_state(0,0);
+        if ((res = parse_expr(p)) != MJS_OK){
+  __afl_observe_state(0,0);
+           return res;
+        }
+        if (p->tok.tok != TOK_COMMA) {
+  __afl_observe_state(0,0);
+          break;
+        }
+  __afl_observe_state(0,0);
         emit_byte(p, OP_DROP);
         pnext1(p);
       }
+  __afl_observe_state(0,0);
       return res;
     }
+  __afl_observe_state(0,0);
   }
+  __afl_observe_state(0,0);
 }
 
 MJS_PRIVATE mjs_err_t
 mjs_parse(const char *path, const char *buf, struct mjs *mjs) {
+  // JY7 从buf里读取
   mjs_err_t res = MJS_OK;
   struct pstate p;
   size_t start_idx, llen;
@@ -13989,6 +14174,7 @@ mjs_parse(const char *path, const char *buf, struct mjs *mjs) {
   p.cur_idx = p.mjs->bcode_gen.len;
 
   res = parse_statement_list(&p, TOK_EOF);
+  // JY8 Parse
   emit_byte(&p, OP_EXIT);
 
   /* remember map offset */

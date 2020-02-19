@@ -3,9 +3,12 @@
 
 #include <stdio.h>
 
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 
 typedef struct CsvRow {
     char **fields_;
